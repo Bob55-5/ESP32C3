@@ -1,0 +1,346 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <link rel="stylesheet" type="text/css" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h3>PROJECT</h3>
+
+  <button id="disconnectButton">Discon.</button>
+  <button id="pairButton">Pair</button>
+
+  <div class="waveform-container">
+    <div class="chart-container">
+      <canvas id="waveform" width="300" height="200" style="border:0px solid #000000;"></canvas>
+    </div>
+  </div>
+
+  <div class="progress-bar-container">
+    <div id="progress-bar" class="progress-bar"></div>
+  </div>
+  <div id="progress-text" class="progress-text">Air... 0%</div>
+
+  <div class="button-row">
+    <div class="button-column">
+      <button id="button1" onmousedown="pressButton(this)" onmouseup="releaseButton(this)" onmouseleave="releaseButton(this)" ontouchstart="pressButton(this)" ontouchend="releaseButton(this)" ontouchcancel="releaseButton(this)">Load</button>
+    </div>
+    <div class="button-column">
+      <button id="button2" onmousedown="pressButton2(this)" ontouchstart="pressButton2(this)">Empty</button>
+    </div>
+  </div>
+
+  <div class="button-row">
+    <div class="button-column">
+      <button id="viewSavedButton" onclick="toggleSavedWaveforms()">View Back</button>
+    </div>
+  </div>
+
+  <div id="savedWaveformsContainer" class="saved-waveforms-container">
+    <h3>Saved Waveforms</h3>
+    <div id="waveforms-container"></div>
+  </div>
+
+  <script>
+    let device = null;
+    let sensorCharacteristic = null;
+    let ledCharacteristic = null;
+    let progress = 0;
+    let voltageWave = document.getElementById('waveform');
+    let progressInterval = null;
+    let button1Disabled = false;
+    let button2Disabled = false;
+    let waveData = [];
+    const waveWidth = 300;
+    let isDeviceConnected = false;
+    const maxSavedWaveforms = 5;
+    let savedWaveforms = [];
+    let isViewingSaved = false;
+    let isSavingWaveforms = true;
+
+    document.getElementById('pairButton').addEventListener('click', async () => {
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: ['19b10000-e8f2-537e-4f6c-d104768a1214'] }]
+        });
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('19b10000-e8f2-537e-4f6c-d104768a1214');
+        sensorCharacteristic = await service.getCharacteristic('19b10001-e8f2-537e-4f6c-d104768a1214');
+        ledCharacteristic = await service.getCharacteristic('19b10002-e8f2-537e-4f6c-d104768a1214');
+        sensorCharacteristic.startNotifications();
+        sensorCharacteristic.addEventListener('characteristicvaluechanged', handleVoltageChange);
+        alert('Device paired successfully!');
+
+        document.getElementById('pairButton').classList.add('paired');
+        isDeviceConnected = true;
+        enableAll();
+
+       // Spegni il pulsante "View" se è acceso
+        if (document.getElementById('viewSavedButton').classList.contains('view-active')) {
+        document.getElementById('viewSavedButton').classList.remove('view-active');
+        hideSavedWaveforms();
+      }
+
+        savedWaveforms = [];
+        localStorage.setItem('savedWaveforms', JSON.stringify(savedWaveforms));
+        hideSavedWaveforms();
+        updateSavedWaveformsDisplay();
+      } catch (error) {
+        alert('Failed to pair device: ' + error);
+      }
+    });
+
+    document.getElementById('disconnectButton').addEventListener('click', async () => {
+      if (isDeviceConnected) {
+        document.getElementById('disconnectButton').classList.add('active');
+        if (device && device.gatt.connected) {
+          await ledCharacteristic.writeValue(new Uint8Array([2]));
+          await device.gatt.disconnect();
+          alert('Device disconnected successfully!');
+
+          document.getElementById('pairButton').classList.remove('paired');
+          isDeviceConnected = false;
+          resetAll();
+          document.getElementById('disconnectButton').classList.remove('active');
+        } else {
+          alert('No device connected.');
+        }
+      }
+    });
+
+    function resetAll() {
+      progress = 0;
+      document.getElementById('progress-bar').style.width = '0%';
+      document.getElementById('progress-text').innerText = 'Air... 0%';
+      waveData = [];
+      drawWaveform();
+      document.getElementById('button1').disabled = true;
+      document.getElementById('button2').disabled = true;
+      button1Disabled = true;
+      button2Disabled = true;
+      if (ledCharacteristic) {
+        ledCharacteristic.writeValue(new Uint8Array([0]));
+        ledCharacteristic.writeValue(new Uint8Array([2]));
+      }
+    }
+
+    function enableAll() {
+      document.getElementById('button1').disabled = false;
+      document.getElementById('button2').disabled = false;
+      button1Disabled = false;
+      button2Disabled = false;
+      progress = 0;
+      document.getElementById('progress-bar').style.width = '0%';
+      document.getElementById('progress-text').innerText = 'Air... 0%';
+      waveData = [];
+      drawWaveform();
+    }
+
+    function pressButton(button) {
+      if (!isDeviceConnected || button1Disabled) return;
+      button.classList.add('active');
+      ledCharacteristic.writeValue(new Uint8Array([1]));
+      document.getElementById('button2').disabled = true;
+      button2Disabled = true;
+      startProgress();
+    }
+
+    function releaseButton(button) {
+      if (!isDeviceConnected || button1Disabled) return;
+      button.classList.remove('active');
+      ledCharacteristic.writeValue(new Uint8Array([0]));
+      document.getElementById('button2').disabled = false;
+      button2Disabled = false;
+      stopProgress();
+    }
+
+    async function pressButton2(button) {
+      if (!isDeviceConnected || button2Disabled) return;
+      button.classList.add('active');
+      await ledCharacteristic.writeValue(new Uint8Array([0]));
+      await ledCharacteristic.writeValue(new Uint8Array([2]));
+      document.getElementById('button1').disabled = true;
+      button1Disabled = true;
+      resetProgress();
+    }
+
+    function startProgress() {
+      if (progressInterval) clearInterval(progressInterval);
+      progressInterval = setInterval(() => {
+        if (progress < 100) {
+          progress++;
+          document.getElementById('progress-bar').style.width = progress + '%';
+          document.getElementById('progress-text').innerText = 'Loading Air... ' + progress + '%';
+        } else {
+          clearInterval(progressInterval);
+          ledCharacteristic.writeValue(new Uint8Array([0]));
+          button1Disabled = true;
+          document.getElementById('button1').disabled = true;
+          document.getElementById('button1').classList.remove('active');
+          document.getElementById('progress-text').innerText = 'Loading Air... 100%';
+          document.getElementById('button2').disabled = false;
+          button2Disabled = false;
+        }
+      }, 50);
+    }
+
+    function stopProgress() {
+      if (progressInterval) clearInterval(progressInterval);
+    }
+
+    function resetProgress() {
+      const progressBar = document.getElementById('progress-bar');
+      const interval = setInterval(() => {
+        if (progress <= 0) {
+          clearInterval(interval);
+          enableButtons();
+          document.getElementById('button2').classList.remove('active');
+        } else {
+          progress--;
+          progressBar.style.width = progress + '%';
+          document.getElementById('progress-text').innerText = 'Emptying Air... ' + progress + '%';
+          button1Disabled = true;
+          document.getElementById('button1').disabled = true;
+        }
+      }, 100);
+    }
+
+    function disableButtons() {
+      document.getElementById('button1').disabled = true;
+      document.getElementById('button2').disabled = true;
+    }
+
+    function enableButtons() {
+      document.getElementById('button1').disabled = false;
+      document.getElementById('button2').disabled = false;
+      document.getElementById('progress-text').innerText = 'Air... 0%';
+      button1Disabled = false;
+      button2Disabled = false;
+    }
+
+    function handleVoltageChange(event) {
+      const value = parseFloat(new TextDecoder().decode(event.target.value));
+      updateWaveform(value);
+      if (isSavingWaveforms) {
+        saveWaveform();
+      }
+    }
+
+    const canvas = document.getElementById('waveform');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    function drawWaveform() {
+      ctx.clearRect(0, 0, width, height);
+      ctx.beginPath();
+      ctx.moveTo(0, height / 2 + 60);
+
+      const offsetX = -2;
+      for (let i = 0; i < waveData.length; i++) {
+        const value = waveData[i] || 0;
+        const x = i + offsetX;
+        const y = (height / 2 - value * 50) + 80;
+        ctx.lineTo(x, y);
+      }
+
+      ctx.strokeStyle = '#ff33cc';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    function updateWaveform(newValue) {
+      if (newValue < 0 || newValue > 3.3) return;
+
+      waveData.push(newValue);
+
+      if (waveData.length > waveWidth) {
+        waveData = [];
+      }
+
+      drawWaveform();
+    }
+
+    function saveWaveform() {
+      if (waveData.length === waveWidth) {
+        savedWaveforms.push([...waveData]);
+        if (savedWaveforms.length > maxSavedWaveforms) {
+          savedWaveforms.shift();
+        }
+        localStorage.setItem('savedWaveforms', JSON.stringify(savedWaveforms));
+        updateSavedWaveformsDisplay();
+      }
+    }
+
+    function toggleSavedWaveforms() {
+      const viewButton = document.getElementById('viewSavedButton');
+      if (isViewingSaved) {
+        hideSavedWaveforms();
+        viewButton.classList.remove('view-active');
+      } else {
+        viewSavedWaveforms();
+        viewButton.classList.add('view-active');
+      }
+    }
+
+    function viewSavedWaveforms() {
+      document.getElementById('savedWaveformsContainer').style.display = 'block';
+      updateSavedWaveformsDisplay();
+      isViewingSaved = true;
+      isSavingWaveforms = false;
+    }
+
+    function hideSavedWaveforms() {
+      document.getElementById('savedWaveformsContainer').style.display = 'none';
+      isViewingSaved = false;
+      isSavingWaveforms = true;
+    }
+
+    function updateSavedWaveformsDisplay() {
+      const waveformsContainer = document.getElementById('waveforms-container');
+      waveformsContainer.innerHTML = '';
+
+      savedWaveforms = JSON.parse(localStorage.getItem('savedWaveforms')) || [];
+      savedWaveforms.forEach((waveData, index) => {
+        const waveformContainer = document.createElement('div');
+        waveformContainer.classList.add('waveform-container', 'saved-waveform');
+
+        const chartContainer = document.createElement('div');
+        chartContainer.classList.add('chart-container');
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 300;
+        canvas.height = 100;
+
+        chartContainer.appendChild(canvas);
+        waveformContainer.appendChild(chartContainer);
+        waveformsContainer.appendChild(waveformContainer);
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        function drawWaveform() {
+          ctx.clearRect(0, 0, width, height);
+          ctx.beginPath();
+          ctx.moveTo(0, height / 2 + 60);
+
+          const offsetX = -2;
+          for (let i = 0; i < waveData.length; i++) {
+            const value = waveData[i] || 0;
+            const x = i + offsetX;
+            const y = (height / 2 - value * 50) + 80;
+            ctx.lineTo(x, y);
+          }
+
+          ctx.strokeStyle = '#ff33cc';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+        drawWaveform();
+      });
+    }
+  </script>
+</body>
+</html>

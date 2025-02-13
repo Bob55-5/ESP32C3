@@ -1,0 +1,204 @@
+html {
+  font-family: Arial;
+  display: inline-block;
+  text-align: center;
+}
+
+h3 {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  text-align: center;
+  color: #fff;
+  font-size: 16px;
+  padding: 15px 0;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+}
+
+h4 {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  text-align: center;
+  color: #fff;
+  font-size: 13px;
+  padding: 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #101010;
+  color: #fff;
+  background-size: cover;
+  background-position: center;
+  height: 100vh;
+  background-repeat: no-repeat;
+}
+
+.center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.button-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 1.0cm;
+}
+
+.button-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+button {
+  width: 120px;
+  height: 40px;
+  background: linear-gradient(0deg, #333, #000);
+  border: none;
+  outline: none;
+  border-radius: 20px;
+  box-shadow: 0 0 0 4px #353535, 0 0 0 5px #3e3e3e, inset 0 0 10px rgba(0,0,0,1);
+  color: white;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#pairButton, #disconnectButton, #viewSavedButton {
+  width: 75px;
+  height: 25px;
+  font-size: 10px;
+}
+
+#pairButton, #disconnectButton {
+  position: absolute;
+  top: 15px;
+}
+
+#pairButton {
+  right: 15px;
+}
+
+#disconnectButton {
+  left: 15px;
+}
+
+button.active {
+  background: linear-gradient(0deg, #ff007f, #ff007f);
+  box-shadow: 0 0 0 4px #353535, 0 0 0 5px #3e3e3e, inset 0 0 10px rgba(0,0,0,1);
+}
+
+button.paired {
+  background: linear-gradient(0deg, #ff007f, #ff007f);
+  box-shadow: 0 0 0 4px #353535, 0 0 0 5px #3e3e3e, inset 0 0 10px rgba(0,0,0,1);
+}
+
+button.view-active {
+  background: linear-gradient(0deg, #ff007f, #ff007f);
+  box-shadow: 0 0 0 4px #353535, 0 0 0 5px #3e3e3e, inset 0 0 10px rgba(0,0,0,1);
+}
+
+* {
+  user-select: none;
+}
+
+.progress-bar-container {
+  width: calc(90% - 80.0px);
+  height: 12px;
+  background-color: #333;
+  border-radius: 15px;
+  margin-top: 1.5cm;
+  margin-left: auto;
+  margin-right: auto;
+  box-shadow: inset 0 0 4px rgba(0,0,0,0.6), 0 0 10px rgba(0, 0, 0, 0.6);
+  border: 4px solid #353535;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #1e90ff;
+  border-radius: 15px;
+  width: 0%;
+  transition: width 0.1s ease-in-out;
+}
+
+.progress-text {
+  margin-top: 10px;
+  color: #fff;
+  font-size: 14px;
+}
+
+#button1, #button2 {
+  font-family: sans-serif;
+  font-size: 16px;
+  font-weight: normal;
+  text-transform: none;
+}
+
+#button1 {
+  transform: translateX(-12px);
+}
+
+#button2 {
+  transform: translateX(12px);
+}
+
+#viewSavedButton {
+  transform: translateX(-0.1cm);
+}
+
+.waveform-container {
+  position: relative;
+  width: 80%;
+  height: 200px;
+  margin: 0.3cm auto 0 auto;
+  background-color: #212121;
+  border-radius: 20px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+  border: 2px solid #444;
+  overflow: hidden;
+}
+
+.chart-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.chart-container canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+}
+
+.saved-waveforms-container {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.saved-waveform {
+  margin-bottom: 20px;
+  height: 100px;
+}
+
+.saved-waveform canvas {
+  height: 100px;
+}
